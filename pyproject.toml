@@ -1,0 +1,16 @@
+[project]
+name = "recipelint"
+version = "0.1.0"
+description = "A linter for recipe files that flags things which break when you scale servings."
+requires-python = ">=3.9"
+license = { text = "MIT" }
+
+[project.scripts]
+recipelint = "recipelint.cli:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["recipelint*"]
