@@ -47,6 +47,20 @@ QUANTITY_RE = re.compile(
     re.VERBOSE,
 )
 
+# A can/jar/package size given as a parenthetical, e.g. "1 (14 oz) can
+# crushed tomatoes" or, with no count in front because there's only one
+# of it, "(400 g) can crushed tomatoes". The outer number (if any) is how
+# many cans -- a count, not a measurement -- so the unit that actually
+# matters for the mixed-system check lives inside the parens.
+PAREN_UNIT_RE = re.compile(
+    r"""\(\s*
+    (?:\d+\s+\d+/\d+ | \d+/\d+ | \d+\.\d+ | \d+)
+    \s*
+    (?P<unit>[A-Za-z]+\.?)
+    \s*\)""",
+    re.VERBOSE,
+)
+
 HEADING_RE = re.compile(r"^#+\s*(.+)$")
 HEADER_FIELD_RE = re.compile(r"^([A-Za-z_]+)\s*:\s*(.*)$")
 
@@ -129,13 +143,38 @@ def check_vague_quantities(ingredient_lines):
     return findings
 
 
+def _quantity_and_unit(text):
+    """Find the leading quantity of an ingredient line and any unit tied to it.
+
+    Returns (has_quantity, unit). unit is None when there's a quantity but
+    no unit to reason about ("2 large eggs"). It's found by digging into a
+    parenthetical can/jar size when the leading number is just a count
+    ("1 (14 oz) can ...").
+    """
+    match = QUANTITY_RE.match(text)
+    if match:
+        unit = match.group("unit")
+        if not unit:
+            paren = PAREN_UNIT_RE.search(match.group("rest"))
+            if paren:
+                unit = paren.group("unit")
+        return True, (unit.lower().rstrip(".") if unit else None)
+
+    paren = PAREN_UNIT_RE.match(text)
+    if paren:
+        return True, paren.group("unit").lower().rstrip(".")
+
+    return False, None
+
+
 def check_unparseable_quantity(ingredient_lines):
     findings = []
     for line_no, text in ingredient_lines:
         lowered = text.lower()
         if any(phrase in lowered for phrase in VAGUE_QUANTITIES):
             continue
-        if not QUANTITY_RE.match(text):
+        has_quantity, _ = _quantity_and_unit(text)
+        if not has_quantity:
             findings.append(Finding(
                 line_no, "warning",
                 "no leading quantity found; this line will be left unscaled",
@@ -146,10 +185,9 @@ def check_unparseable_quantity(ingredient_lines):
 def check_mixed_unit_systems(ingredient_lines):
     systems_seen = {}
     for line_no, text in ingredient_lines:
-        match = QUANTITY_RE.match(text)
-        if not match or not match.group("unit"):
+        _, unit = _quantity_and_unit(text)
+        if not unit:
             continue
-        unit = match.group("unit").lower().rstrip(".")
         for system, units in UNIT_WORDS.items():
             if unit in units and system not in systems_seen:
                 systems_seen[system] = (line_no, unit)

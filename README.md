@@ -78,7 +78,10 @@ as `recipelint examples/cookies.recipe`.
 - ingredient lines with no leading quantity at all, e.g. free text like
   "a can of tomatoes" (warning)
 - a recipe mixing volume units (cups, tsp) and mass units (g, oz) across
-  different ingredients (info)
+  different ingredients (info) -- this also looks inside can/jar sizes
+  given as a parenthetical, e.g. `1 (14 oz) can crushed tomatoes`, since
+  the unit that matters for this check is the one in the parens, not the
+  can count in front of it
 
 ## license
 
