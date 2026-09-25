@@ -64,6 +64,22 @@ PAREN_UNIT_RE = re.compile(
 HEADING_RE = re.compile(r"^#+\s*(.+)$")
 HEADER_FIELD_RE = re.compile(r"^([A-Za-z_]+)\s*:\s*(.*)$")
 
+WORD_RE = re.compile(r"[a-z]+")
+
+# Nouns for things that come as whole, indivisible units rather than a
+# measurement. "3 eggs" scales fine by 2x or 3x, but 1.5x leaves you
+# holding half an egg, which isn't a thing you can measure out.
+COUNT_NOUNS = frozenset({
+    "egg", "eggs", "yolk", "yolks", "white", "whites",
+    "banana", "bananas", "avocado", "avocados", "onion", "onions",
+    "lemon", "lemons", "lime", "limes", "potato", "potatoes",
+    "apple", "apples", "clove", "cloves", "stalk", "stalks",
+    "sprig", "sprigs", "leaf", "leaves",
+    "can", "cans", "jar", "jars", "package", "packages",
+    "packet", "packets", "envelope", "envelopes",
+    "stick", "sticks", "slice", "slices", "sheet", "sheets",
+})
+
 
 @dataclass
 class Finding:
@@ -182,6 +198,44 @@ def check_unparseable_quantity(ingredient_lines):
     return findings
 
 
+def check_count_noun_scaling(ingredient_lines):
+    """Flag whole-item quantities that round awkwardly at non-integer scales.
+
+    A leading integer with no real unit attached ("2 large eggs", "3
+    cloves garlic", "1 (14 oz) can tomatoes") is a count, not a
+    measurement. Doubling or tripling it is fine, but a 1.5x or 0.75x
+    scale leaves a fractional egg or can, which the cook has to round
+    off by hand -- worth a nudge even though it isn't a hard error.
+    """
+    findings = []
+    measured_units = UNIT_WORDS["volume"] | UNIT_WORDS["mass"]
+    for line_no, text in ingredient_lines:
+        lowered = text.lower()
+        if any(phrase in lowered for phrase in VAGUE_QUANTITIES):
+            continue
+
+        match = QUANTITY_RE.match(text)
+        if not match or not re.fullmatch(r"\d+", match.group("qty")):
+            continue
+
+        unit = match.group("unit")
+        if unit and unit.lower().rstrip(".") in measured_units:
+            continue
+
+        count = int(match.group("qty"))
+        noun = next((w for w in WORD_RE.findall(lowered) if w in COUNT_NOUNS), None)
+        if noun is None:
+            continue
+
+        findings.append(Finding(
+            line_no, "info",
+            f"'{count} {noun}' counts whole items; a non-integer multiplier "
+            "(1.5x, 0.75x, ...) leaves a fractional amount that doesn't work "
+            "in the kitchen",
+        ))
+    return findings
+
+
 def check_mixed_unit_systems(ingredient_lines):
     systems_seen = {}
     for line_no, text in ingredient_lines:
@@ -211,6 +265,7 @@ def lint(text):
     findings += check_servings(header, header_line_for_key)
     findings += check_vague_quantities(ingredient_lines)
     findings += check_unparseable_quantity(ingredient_lines)
+    findings += check_count_noun_scaling(ingredient_lines)
     findings += check_mixed_unit_systems(ingredient_lines)
 
     findings.sort(key=lambda f: f.line)

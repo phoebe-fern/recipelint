@@ -59,6 +59,7 @@ python -m recipelint.cli examples/cookies.recipe
 Against the example above (see `examples/cookies.recipe`), that prints:
 
 ```
+examples/cookies.recipe:12: info: '2 eggs' counts whole items; a non-integer multiplier (1.5x, 0.75x, ...) leaves a fractional amount that doesn't work in the kitchen
 examples/cookies.recipe:14: warning: quantity 'a pinch' has no fixed amount and won't scale
 ```
 
@@ -82,6 +83,10 @@ as `recipelint examples/cookies.recipe`.
   given as a parenthetical, e.g. `1 (14 oz) can crushed tomatoes`, since
   the unit that matters for this check is the one in the parens, not the
   can count in front of it
+- whole-item counts like `2 eggs`, `3 cloves garlic`, or `1 can` of
+  something (info) -- these scale cleanly by a whole factor (2x, 3x) but
+  a 1.5x or 0.75x scale leaves a fractional egg or can that someone has
+  to round off by hand
 
 ## license
 
