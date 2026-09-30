@@ -71,6 +71,21 @@ finding was reported (currently: a missing or invalid `servings` field).
 If installed as a package (`pip install .`), the same check is available
 as `recipelint examples/cookies.recipe`.
 
+## scaling
+
+```
+python -m recipelint.cli --scale 1.5 examples/cookies.recipe
+```
+
+prints the recipe with `servings` and each leading ingredient quantity
+multiplied by the factor (`2`, `0.5`, `3/2` all work). `2 1/4 cups flour`
+becomes `3 3/8 cups flour`. Amounts that don't land on a halves, thirds,
+quarters or eighths fraction are printed as a two-decimal number. Vague
+lines ("a pinch of ...") and lines with no leading number are copied
+unchanged, and the parenthetical size in `1 (14 oz) can tomatoes` is left
+alone since only the can count scales. Scaling doesn't lint; run the
+linter first to see what will be skipped.
+
 ## what it checks today
 
 - missing or non-positive `servings` field (error)
